@@ -26,6 +26,7 @@ retry
 scikit-learn
 seaborn
 sentence-transformers
+statsmodels
 streamlit
 tabulate
 tqdm
