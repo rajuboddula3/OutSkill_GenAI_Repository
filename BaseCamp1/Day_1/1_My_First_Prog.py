@@ -6,4 +6,4 @@ for i in range (int(Input)) :
 
     print ("Iteration ", i)
 
-## This is EXAMPLE Program
+## This is EXAMPLE Program 1
