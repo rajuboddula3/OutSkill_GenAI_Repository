@@ -7,10 +7,10 @@ A comprehensive 18-module GenAI Engineering curriculum covering Python fundament
 | Stat | Value |
 |------|-------|
 | Total Modules | 15 Weeks + 2 BaseCamps + 1 BuildWeek |
-| Jupyter Notebooks | 100+ |
-| Python Scripts | 50+ |
+| Jupyter Notebooks | 109 |
+| Python Scripts | 117 |
 | Data Files | 15+ CSV/JSON/text |
-| Virtual Environments | 3 included (BaseCamp1, BaseCamp2, Week1) |
+| Virtual Environments | 1 committed (`BaseCamp1/.venv`); create per-week for others |
 
 ---
 
@@ -39,6 +39,7 @@ GenAIEngineering-Cohort1/
 ├── classroom.ipynb         # Main classroom notebook (74MB)
 ├── requirements.txt        # Root-level dependencies
 ├── commands.md             # FastAPI/Streamlit/Git command reference
+├── vscode-extensions.txt   # VS Code extensions list (currently empty)
 └── .gitignore
 ```
 
@@ -147,9 +148,12 @@ GenAIEngineering-Cohort1/
 | Day 2 | `01_streamlit.py` → `09_streamlit.py`, `calculator.py` | Progressive Streamlit app development |
 
 ### BuildWeek — Fine-Tuning
-**Path**: `BuildWeekFineTuning/Day1/`
+**Path**: `BuildWeekFineTuning/`
 
-- `shakespeare.txt` — Text corpus used for fine-tuning demonstrations
+| Day | Files | Topics |
+|-----|-------|--------|
+| Day 1 | `shakespeare.txt`, `archive.zip`, `whiteboard.excalidraw` | Fine-tuning corpus + walkthrough whiteboard |
+| Day 2 | `Day2.excalidraw` | Fine-tuning session 2 whiteboard |
 
 ---
 
@@ -414,9 +418,10 @@ GenAIEngineering-Cohort1/
 - `storygen.py` — Story generation workflow
 - `supporticket.py` — Support ticket processing pipeline
 
-**Day 2:**
+**Day 2** (folder is `Day 2/` — note the space):
 - `codegen.py` — Code generation from specifications
 - `flight.py` — Flight booking workflow
+- `requirements.txt` — Day 2 dependencies
 - `Blog Writer Team/blog_pipeline.py` — Blog writing multi-agent pipeline
 - `Blog Writer Team/ui-agent.py` — Blog generation UI
 
@@ -535,19 +540,78 @@ NEWS_API_KEY=your_news_api_key           # Week 11
 
 ### Virtual Environments
 ```bash
-# BaseCamp1
-source BaseCamp1/bascamp1_env/bin/activate
+# BaseCamp1 (the only committed virtual environment)
+source BaseCamp1/.venv/bin/activate
 
-# BaseCamp2
-source BaseCamp2/basecamp2_env/bin/activate
-
-# Week 1
-source Week1/week1_env/bin/activate
-
-# For other weeks — create fresh env per week
-python -m venv venv && source venv/bin/activate
-pip install -r WeekN/requirements.txt
+# For all other modules — create a fresh env per week
+python -m venv .venv && source .venv/bin/activate
+pip install -r WeekN/requirements.txt   # if the week ships a requirements.txt
 ```
+
+> Note: only `BaseCamp1/.venv` is checked in. Earlier `*_env/` folders
+> (basecamp2_env, week1_env, …) are gitignored — recreate them locally as needed.
+
+### UV Package Manager (preferred)
+
+Several modules are managed with [**uv**](https://docs.astral.sh/uv/) — a fast Python
+package/environment manager. Modules with a `pyproject.toml` + `uv.lock` +
+`.python-version` are uv projects: **BaseCamp1**, **BaseCamp2**, **Week1**, **Week2**
+(more added over time). Python is pinned to **3.11.4** via `.python-version`.
+
+```bash
+# Install uv (once, macOS/Linux)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# From inside a uv-managed module (e.g. BaseCamp1/ or Week1/):
+uv sync                       # Create .venv + install exactly what uv.lock pins
+uv run python script.py       # Run inside the project env (no manual activate)
+uv run jupyter lab            # Launch Jupyter in the project env
+uv run streamlit run app.py   # Run a Streamlit app in the project env
+
+# Manage dependencies (updates pyproject.toml AND uv.lock)
+uv add pandas                 # Add a runtime dependency
+uv add --dev pytest           # Add a dev dependency
+uv remove pandas              # Remove a dependency
+uv lock                       # Re-resolve and refresh uv.lock
+
+# Pin / switch Python version for the module
+uv python pin 3.11.4          # Writes .python-version
+```
+
+- Commit both `pyproject.toml` **and** `uv.lock` so environments stay reproducible.
+- `uv sync` is the uv equivalent of `python -m venv .venv && pip install -r requirements.txt`.
+- Weeks without a `pyproject.toml` still use the plain `venv` + `requirements.txt` flow above.
+
+### GitHub Repositories
+
+This working copy has **two** remotes:
+
+| Remote | Points to | Purpose |
+|--------|-----------|---------|
+| `origin` | `github.com/rajuboddula3/OutSkill_GenAI_Repository` | Personal fork — push your work here |
+| `upstream` | `github.com/outskill-git/GenAIEngineering-Cohort1` | Canonical cohort repo — pull instructor updates from here |
+
+```bash
+# Push your work to your fork
+git push origin main
+
+# Pull the latest cohort material from upstream and merge into your main
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main          # keep your fork up to date
+
+# Common GitHub CLI tasks (requires `gh auth login`)
+gh repo view                  # Show current repo
+gh pr create                  # Open a pull request
+gh pr status                  # PRs relevant to you
+```
+
+> ⚠️ **Security:** do not embed a personal access token (`ghp_…`) directly in the
+> remote URL — it gets stored in `.git/config` in plaintext. Prefer `gh auth login`,
+> a credential helper, or SSH. To scrub a token from an existing remote:
+> `git remote set-url origin https://github.com/rajuboddula3/OutSkill_GenAI_Repository.git`
+> and rotate the leaked token in **GitHub → Settings → Developer settings → Personal access tokens**.
 
 ### Common Commands (from `commands.md`)
 ```bash
@@ -559,10 +623,81 @@ uvicorn server:app --reload --port 8000
 
 # Run Gradio app
 python app.py
+```
 
-# Git workflow
-git add .
-git commit -m "message"
+---
+
+## Git Command Reference
+
+Full reference lives in `commands.md`. Quick reference for day-to-day cohort work:
+
+### Everyday workflow
+```bash
+git status                       # See what changed
+git add <file>                   # Stage a specific file
+git add .                        # Stage everything in the current directory
+git add -A                       # Stage everything in the repo
+git commit -m "message"          # Commit staged changes
+git commit -am "message"         # Stage tracked files + commit in one step
+git push origin main             # Push commits to the remote main branch
+git pull origin main             # Fetch + merge latest from remote main
+```
+
+### First-time setup
+```bash
+git config --global user.name  "Your Name"
+git config --global user.email "you@example.com"
+git clone https://github.com/username/repository.git
+git clone -b <branch> https://github.com/username/repository.git   # specific branch
+```
+
+### Branching
+```bash
+git branch                       # List local branches
+git branch -a                    # List all branches (local + remote)
+git checkout -b <branch>         # Create and switch to a new branch
+git checkout <branch>            # Switch to an existing branch
+git merge <branch>               # Merge <branch> into the current branch
+git branch -d <branch>           # Delete a merged branch
+```
+
+### Remotes
+```bash
+git remote -v                                        # List remotes
+git remote add origin <url>                          # Add a remote
+git remote set-url origin <new-url>                  # Change remote URL
+git fetch origin                                     # Fetch without merging
+git push -u origin <branch>                          # Push and set upstream tracking
+git push --force-with-lease                          # Safer force push
+```
+
+### Inspecting history & changes
+```bash
+git log --oneline                # Compact history
+git log --graph --oneline        # Branch graph
+git diff                         # Unstaged changes
+git diff --staged                # Staged changes
+git show <commit-hash>           # Changes in a specific commit
+git blame <file>                 # Who changed each line
+```
+
+### Undo & recovery
+```bash
+git restore <file>               # Discard working-directory changes (Git 2.23+)
+git restore --staged <file>      # Unstage a file (keeps edits)
+git reset --soft  <commit>       # Move HEAD, keep changes staged
+git reset --hard  <commit>       # Discard all changes (use with caution)
+git revert <commit>              # New commit that undoes a previous one
+git stash / git stash pop        # Shelve and restore work-in-progress
+git clean -fd                    # Remove untracked files & directories
+```
+
+### Sync a fork with upstream
+```bash
+git remote add upstream https://github.com/original/repository.git
+git fetch upstream
+git checkout main
+git merge upstream/main
 git push origin main
 ```
 
@@ -602,4 +737,5 @@ git push origin main
 - `numpy<2` is pinned in root requirements — important for compatibility with older HuggingFace models.
 - Week-specific `.env` files are expected but not committed (see `.gitignore`).
 - `classroom.ipynb` at root is 74MB — avoid loading unless necessary.
-- The `Week1/Day_1/pandas.ipynb` file has uncommitted modifications (git status shows `M`).
+- Notebooks under `BaseCamp1/Day_1/` are actively edited during class — expect frequent uncommitted changes there.
+- `Git Command Reference` above covers the common workflow; see `commands.md` for the full guide plus FastAPI/Streamlit run/stop commands.
