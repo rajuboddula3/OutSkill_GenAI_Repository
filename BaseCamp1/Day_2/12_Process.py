@@ -5,7 +5,7 @@ from datetime import datetime
 # Define a Task that is heavy in CPU time
 def cpu_task (name : str, counter : int):
 
-    # Execute a computation in loop to simulate
+    # Execute a computation in loop to simulate -
     Res = 0
     for i in range (counter):
 
