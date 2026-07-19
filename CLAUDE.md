@@ -576,10 +576,34 @@ uv lock                       # Re-resolve and refresh uv.lock
 
 # Pin / switch Python version for the module
 uv python pin 3.11.4          # Writes .python-version
+uv python install 3.11.4      # Download a specific CPython build
+uv python list                # List installed / available Pythons
+
+# Environment & lockfile
+uv venv                       # Create a bare .venv (without installing)
+uv venv --python 3.11.4       # Create a .venv with a specific Python
+uv sync --frozen              # Install strictly from uv.lock (fail if out of date)
+uv sync --upgrade             # Upgrade deps within pyproject constraints, refresh lock
+uv lock --upgrade-package pandas   # Upgrade a single package in the lock
+uv tree                       # Show the dependency tree
+
+# Start a fresh uv project (weeks that don't have one yet)
+uv init                       # Create pyproject.toml + .python-version in the module
+
+# pip-compatible interface (inside the project env)
+uv pip install <pkg>          # Ad-hoc install (does NOT update pyproject/uv.lock)
+uv pip list                   # List installed packages
+uv pip freeze                 # Export installed versions
+
+# One-off tools without adding them to the project
+uv tool run ruff check .      # Run a tool in an ephemeral env
+uvx ruff check .              # Shorthand for `uv tool run`
 ```
 
 - Commit both `pyproject.toml` **and** `uv.lock` so environments stay reproducible.
 - `uv sync` is the uv equivalent of `python -m venv .venv && pip install -r requirements.txt`.
+- Prefer `uv add`/`uv remove` (updates the lockfile) over `uv pip install` (does not).
+- Use `uv run <cmd>` instead of activating the venv — it auto-syncs and runs in the project env.
 - Weeks without a `pyproject.toml` still use the plain `venv` + `requirements.txt` flow above.
 
 ### GitHub Repositories
@@ -700,6 +724,206 @@ git checkout main
 git merge upstream/main
 git push origin main
 ```
+
+---
+
+## Running & Executing Programs
+
+Every module falls into one of a few program **types**. Learn the run pattern for
+the type, then use the per-module tables below for the exact command + key packages.
+Install dependencies first — a module's `requirements.txt`/`pyproject.toml` is the
+source of truth; the "Key packages" column just names the headline ones.
+
+### How to install dependencies (pick one)
+
+```bash
+# uv-managed modules (BaseCamp1, BaseCamp2, Week1, Week2 — have pyproject.toml/uv.lock)
+cd <module> && uv sync
+
+# modules that ship a requirements.txt
+cd <module> && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# modules with no requirements file — install from the root requirements.txt
+pip install -r requirements.txt        # run from repo root
+```
+
+### Run pattern by program type
+
+| Type | How to run | Notes |
+|------|-----------|-------|
+| **Jupyter notebook** (`.ipynb`) | `uv run jupyter lab` / `jupyter lab`, or open in VS Code and pick the module's kernel | Needs `ipykernel`, `jupyter`. Run cells top-to-bottom. |
+| **Plain Python script** (`.py`) | `python file.py` (or `uv run python file.py`) | Requires `.env` with the relevant API key (see table below). |
+| **Streamlit app** | `streamlit run file.py` → http://localhost:8501 | Needs `streamlit`. Add `--server.port 8502` to change port. |
+| **Gradio app** | `python file.py` → http://localhost:7860 | Needs `gradio`. Some accept `--share`, `--port`, `--setup-db`. |
+| **FastAPI / REST server** | `python server.py` **or** `uvicorn <module>:app --reload --port <p>` | Needs `fastapi`, `uvicorn`. |
+| **MCP server** | `python <mcp_server>.py` (SSE/HTTP) or launched by its client (stdio) | Needs `fastmcp`/`mcp`. |
+| **Discord bot** | `python bot.py` | Needs `nextcord`, a `config.json`, and `DISCORD_TOKEN`. |
+| **CrewAI / LangGraph agent** | `python file.py` | Needs `crewai`/`langgraph` + `OPENROUTER_API_KEY`. |
+
+> Prefix any of these with `uv run` inside a uv-managed module to skip manual activation
+> (e.g. `uv run streamlit run app.py`).
+
+### BaseCamp1 — Python fundamentals
+Deps: `uv sync` (uses `pyproject.toml`). Key packages: `groq`, `pandas`, `numpy`, `python-dotenv`, `ipykernel`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/1_My_First_Prog.py` | `uv run python Day_1/1_My_First_Prog.py` | — |
+| `Day_1/*.ipynb` (Jupyter, functions, OOP, file I/O) | `uv run jupyter lab` then open the notebook | — |
+| `Day_1/7_Groq.ipynb` | open in Jupyter | `GROQ_API_KEY` |
+| `Day_2/*.ipynb` (lists…threading) | `uv run jupyter lab` | — |
+| `Day_2/12_Process.py` | `uv run python Day_2/12_Process.py` | — |
+
+### BaseCamp2 — OOP & web dev
+Deps: `pip install -r Day_1/requirements.txt` (or `Day_2/`). Key packages: `fastapi`, `uvicorn`, `streamlit`, `pydantic`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/2a_calculator.py` … `6c_products.py` (FastAPI services) | `uvicorn 2a_calculator:app --reload --port 8000` (run from `Day_1/`) | `fastapi`, `uvicorn` |
+| `Day_2/01_streamlit.py` … `09_streamlit.py` | `streamlit run Day_2/0N_streamlit.py` | `streamlit` |
+
+### Week 1 — Pandas, NLP & Search
+Deps: `uv sync` (pyproject) or `pip install -r Week1/requirements.txt`. Key packages: `pandas`, `pandasql`, `streamlit`, `nltk`, `PyPDF2`, `matplotlib`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/*.ipynb` (pandas, nlp, web_crawl, generate) | `uv run jupyter lab` | — |
+| `Day_1/search_engine.py` | `python Day_1/search_engine.py` | reads `bigram/trigram/unigram_probs.json` |
+| `Day_1/search_ui.py` | `streamlit run Day_1/search_ui.py` | `streamlit` |
+
+### Week 2 — ML models & GenAI
+Deps: `pip install -r Week2/requirements.txt`. Key packages: `transformers`, `torch`, `scikit-learn`, `streamlit`. **Requires `HF_TOKEN`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/*.ipynb`, `Day_2/*.ipynb` | `jupyter lab` | `HF_TOKEN` |
+| `Day_2/chatbot.py` | `streamlit run Day_2/chatbot.py` | `HF_TOKEN`, `streamlit` |
+| `Day_2/search_engine.py` / `search_ui.py` | `python search_engine.py` / `streamlit run search_ui.py` | — |
+
+### Week 3 — Coding assistant
+Deps: `pip install -r Week3/requirements.txt`. Key packages: `groq`. **Requires `GROQ_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `coding_assistant.ipynb` | `jupyter lab` | `GROQ_API_KEY` |
+| `coding_assistant.py` | `streamlit run coding_assistant.py` | `GROQ_API_KEY`, `streamlit` |
+
+### Week 4 — RAG intro
+Deps: root `requirements.txt`. Key packages: `langchain-community`, `qdrant-client`, `sentence-transformers`. **Requires `GOOGLE_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Rag.ipynb` | `jupyter lab` | `GOOGLE_API_KEY` |
+
+### Week 5 — Discord bot & advanced RAG
+Deps: `pip install -r Week5/bot/requirements.txt`. Key packages: `nextcord`, `langchain`, `qdrant-client`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `bot/bot.py` | `python bot/bot.py` (from `Week5/`) | `DISCORD_TOKEN`, `bot/config.json` (copy `sample_config.json`) |
+| `ChatAssistant.ipynb`, `RagAdvanced.ipynb` | `jupyter lab` | `GOOGLE_API_KEY` |
+
+### Week 6 — Data integration & function calling
+Deps: root `requirements.txt` + `mysql-connector-python`. Key packages: `langchain`, `qdrant-client`, `rank_bm25`, `mysql-connector-python`. **Requires `GOOGLE_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `1_MySQL_Data.ipynb` … `11_UnStr_to_Str.ipynb` | `jupyter lab` | MySQL running for the MySQL notebooks |
+| `5_Refined_Pipeline.py` | `python 5_Refined_Pipeline.py` | `GOOGLE_API_KEY` |
+
+### Week 7 — Multimodal foundations
+Deps: `pip install -r Week7/requirements.txt`. Key packages: `transformers`, `librosa`, `Pillow`, `nltk` (BLEU), `torch`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `session_1/*.ipynb`, `session_2/*.ipynb` | `jupyter lab` | — |
+
+### Week 8 — Embeddings, fusion & diffusion
+Deps: `pip install -r Week8/requirements.txt`. Key packages: `sentence-transformers`, `transformers`, `diffusers`, `torch`, `Pillow`. **Requires `HF_TOKEN`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `session_1/*.ipynb` (text/image/audio embeddings, fusion) | `jupyter lab` | `HF_TOKEN` |
+| `session_2/*.ipynb` (clip, blip, diffusion) | `jupyter lab` (GPU recommended) | `HF_TOKEN` |
+| `assignment/*.ipynb` | `jupyter lab` | `HF_TOKEN` |
+
+### Week 9 — Vector DBs & production RAG
+Deps: `pip install -r Week9/requirements.txt`. Key packages: `lancedb`, `gradio`, `transformers` (CLIP/Qwen), `torch`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `session_1/introduction_to_gradio.ipynb`, `lancedb_*.ipynb` | `jupyter lab` | — |
+| `session_1/food_app.py`, `product_cataloger_app.py` | `python session_1/food_app.py` → :7860 | `gradio` |
+| `session_2/app.py` (full RAG UI) | `python session_2/app.py` (`--setup-db` first run, `--share`, `--port 8080`) | `gradio`; `OPENAI_API_KEY` optional |
+| `assignment/`, `solution/` fashion RAG | `python solution/solution_fashion_rag.py` | `gradio`, `lancedb` |
+
+### Week 10 — Chatbots, REST & MCP
+Deps: `pip install -r Week10/Day1/requirements.txt`. Key packages: `streamlit`, `fastapi`, `uvicorn`, `fastmcp`, `openai`. **Requires `OPENROUTER_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day1/chatbot_app.py`, `quiz_app.py`, `agent_chat_app.py` | `streamlit run Day1/chatbot_app.py` | `OPENROUTER_API_KEY` |
+| `Day1/scripts/seed_db.py` | `python Day1/scripts/seed_db.py` | — |
+| `Day2/1_rest_calculator_server.py` | `python Day2/1_rest_calculator_server.py` → :9321 | `fastapi`, `uvicorn` |
+| `Day2/2_mcp_calculator_stdio_server.py` | started by its client notebook (stdio transport) | `fastmcp` |
+| `Day2/3_mcp_calculator_sse_server.py` | `python Day2/3_mcp_calculator_sse_server.py` → SSE :9321 | `fastmcp` |
+| `Day2/4_mcp_calculator_resource_server.py` | `python Day2/4_mcp_calculator_resource_server.py` | `fastmcp` |
+| `Day2/*_client.ipynb` | `jupyter lab` (start the matching server first) | — |
+| `Day2/5_streamlit_app.py` | `streamlit run Day2/5_streamlit_app.py` | `streamlit` |
+
+### Week 11 — CrewAI agents
+Deps: per-app requirements + root. Key packages: `crewai`, `crewai_tools`, `faiss-cpu`, `streamlit`. **Requires `OPENROUTER_API_KEY`** (+ `NEWS_API_KEY` for the aggregator).
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/*.ipynb` (agents, tasks, tools, workflows) | `jupyter lab` | `OPENROUTER_API_KEY` |
+| `Day_2/1_annual_reports_analysis/main.py` | `python main.py` (from that folder) | `OPENROUTER_API_KEY`, FAISS index |
+| `Day_2/2_news_aggregator/news_app.py` | `streamlit run news_app.py` | `NEWS_API_KEY`, `OPENROUTER_API_KEY` |
+| `Day_2/3_sdlc_plan/sdlc_crew.py` | `python sdlc_crew.py` | `OPENROUTER_API_KEY` |
+| `Day_2/4_code_assist/assist.py` | `streamlit run assist.py` | `OPENROUTER_API_KEY` |
+
+### Week 12 — Advanced agents & orchestration
+Deps: `pip install -r Week12/Day_2/3_financial_modelling/requirements.txt` (+ root). Key packages: `crewai`, `phidata`, `langgraph`, `pydantic`, `fastapi`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/1_structured_output.py`, `3a_csv_example.py`, `6_python_agent.py`, `7_plantUML.py` | `python Day_1/<file>.py` | `OPENROUTER_API_KEY` |
+| `Day_1/4a_knowledge_Graph.ipynb` | `jupyter lab` | `OPENROUTER_API_KEY` |
+| `Day_2/1_agent2agent/crewai_server.py` / `phidata_Server.py` | `python <server>.py`, then run the matching `a2a_client_{mac,windows}.py` | `OPENROUTER_API_KEY` |
+| `Day_2/2_app_builder/coder.py` | `python coder.py` | `OPENROUTER_API_KEY` |
+| `Day_2/3_financial_modelling/main.py` | `python main.py` (async orchestrator) | `OPENROUTER_API_KEY` |
+
+### Week 13 — LangGraph workflows
+Deps: `pip install -r "Week13/Day 2/requirements.txt"`. Key packages: `langgraph`, `langchain`, `streamlit`. **Requires `OPENROUTER_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/simple_graph.py` | `python Day_1/simple_graph.py` | `OPENROUTER_API_KEY` |
+| `Day_1/storygen.py`, `supporticket.py` | `streamlit run Day_1/storygen.py` | `OPENROUTER_API_KEY`, `streamlit` |
+| `Day 2/codegen.py` | `streamlit run "Day 2/codegen.py"` | `OPENROUTER_API_KEY` |
+| `Day 2/flight.py` | `python "Day 2/flight.py"` | `OPENROUTER_API_KEY` |
+| `Day 2/Blog Writer Team/ui-agent.py` | `streamlit run "Day 2/Blog Writer Team/ui-agent.py"` | `OPENROUTER_API_KEY` |
+
+### Week 14 — Advanced patterns
+Deps: `pip install -r Week14/Day_1/requirements.txt` (or `Day2/`). Key packages: `langgraph`, `aiohttp`, `mcp`, `streamlit`. **Requires `OPENROUTER_API_KEY`.**
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day_1/codereview.py`, `csv_1.py` | `streamlit run Day_1/codereview.py` | `OPENROUTER_API_KEY` |
+| `Day2/arag.py` (async RAG) | `streamlit run Day2/arag.py` | `OPENROUTER_API_KEY` |
+| `Day2/mcp.py` | `streamlit run Day2/mcp.py` | `OPENROUTER_API_KEY` |
+
+### Week 15 — Batch & synthetic data
+Deps: root `requirements.txt` + `anthropic`, `scipy`, `diffusers`. Key packages: `anthropic`, `scipy`, `diffusers`, `crewai`.
+
+| Program | Command | Requires |
+|---------|---------|----------|
+| `Day1/batch.ipynb`, `image.ipynb`, `tokens.ipynb`, `predicted_output.ipynb` | `jupyter lab` | Claude API key |
+| `Day2/2_…`–`7_crew_text_synthetic_data.ipynb` | `jupyter lab` | `OPENROUTER_API_KEY` for the CrewAI notebook |
+
+### BuildWeek — Fine-tuning
+`.excalidraw` files are whiteboards (open in Excalidraw / the VS Code Excalidraw extension), **not** runnable code. `shakespeare.txt` is a corpus consumed by fine-tuning notebooks.
 
 ---
 

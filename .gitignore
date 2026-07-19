@@ -17,3 +17,4 @@ git_training
 *.jpg
 *.pyc
 *.gradio
+*.env
