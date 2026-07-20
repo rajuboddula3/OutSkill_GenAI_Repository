@@ -185,7 +185,7 @@ chart = alt.Chart(chart_data.reset_index()).mark_circle().encode(
     color='C',
     tooltip=['index', 'A', 'B', 'C']
 ).interactive()
-st.altair_chart(chart, use_container_width=True)
+st.altair_chart(chart, width='stretch')
 
 # Map
 st.subheader("Map Display")
