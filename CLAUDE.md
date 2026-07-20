@@ -696,6 +696,50 @@ the new instance on a different port (e.g. `--port 9322`).
 > macOS note: `timeout` is not installed by default — use Ctrl+C or the
 > `kill`/`pkill` commands above instead.
 
+### Troubleshooting: pandas 3.x migration gotchas
+
+`BaseCamp2/.venv` currently runs **pandas 3.0.3 / numpy 2.4.6**. Several long-deprecated
+APIs were **removed** in pandas 3.0, so older cohort notebooks and scripts written against
+pandas 1.x/2.x can fail with `AttributeError`. Verified against the BaseCamp2 env:
+
+| Old (removed) | New (use this) | Notes |
+|---------------|----------------|-------|
+| `df.applymap(fn)` | `df.map(fn)` | Element-wise over a DataFrame |
+| `df.style.applymap(fn)` | `df.style.map(fn)` | Element-wise styling |
+| `df.style.applymap_index(fn)` | `df.style.map_index(fn)` | Element-wise index styling |
+| `df.append(other)` | `pd.concat([df, other])` | Removed back in pandas 2.0 |
+
+`DataFrame.apply` and `Styler.apply` are **unchanged** — only the `applymap` family was
+renamed. The rename is purely cosmetic: `.map` has identical element-wise semantics.
+
+```python
+# AttributeError: 'Styler' object has no attribute 'applymap'
+st.dataframe(df.style.applymap(highlight, subset=['status']))   # pandas < 3
+st.dataframe(df.style.map(highlight, subset=['status']))        # pandas >= 3  ✅
+```
+
+Other pandas 3.0 behavior changes to be aware of:
+
+- **Copy-on-Write is always on** and can no longer be disabled. Chained assignment
+  (`df[df.a > 1]['b'] = 0`) silently does nothing — use `.loc` instead:
+  `df.loc[df.a > 1, 'b'] = 0`.
+- Setting `pd.options.mode.copy_on_write` now raises a `Pandas4Warning` and has no
+  effect; remove any such lines.
+
+```bash
+# Find affected call sites across the repo before running old material
+# NOTE: quote the --include globs — unquoted, zsh tries to expand them and errors
+#       with "no matches found: --include=*.py"
+grep -rn "applymap" --include="*.py" --include="*.ipynb" .
+```
+
+As of the last sweep this returns **no matches** — the repo is clean of `applymap`.
+
+> ⚠️ **numpy version conflict:** the root `requirements.txt` pins `numpy<2` (needed by
+> some older HuggingFace/transformers material), but BaseCamp2's `pyproject.toml`
+> requires `numpy>=2.4.6`. These are incompatible — keep them in **separate
+> environments** (per-module `.venv`) rather than installing both into one.
+
 ---
 
 ## Git Command Reference

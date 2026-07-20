@@ -190,7 +190,7 @@ chart = alt.Chart(chart_data.reset_index()).mark_circle().encode(
     color='C',
     tooltip=['index', 'A', 'B', 'C']
 ).interactive()
-st.altair_chart(chart, use_container_width=True)
+st.altair_chart(chart, width='stretch')
 
 # Map
 st.subheader("Map Display")
@@ -425,7 +425,7 @@ if st.button("Send API Request"):
                 y='value',
                 color='name'
             ).properties(width=600)
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width='stretch')
             
             # Show raw JSON
             if st.checkbox("Show Raw Response"):
@@ -461,7 +461,7 @@ def highlight_status(s):
     return ''
 
 # Display styled dataframe
-st.dataframe(status_df.style.applymap(highlight_status, subset=['status']))
+st.dataframe(status_df.style.map(highlight_status, subset=['status']))
 
 # Auto-refresh option
 if st.checkbox("Enable auto-refresh (every 60 seconds)"):
