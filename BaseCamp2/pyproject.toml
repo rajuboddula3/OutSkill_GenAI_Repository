@@ -1,0 +1,18 @@
+[project]
+name = "basecamp2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11.4"
+dependencies = [
+    "fastapi>=0.139.2",
+    "ipykernel>=7.3.0",
+    "numpy>=2.4.6",
+    "uvicorn>=0.51.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "jupyterlab>=4.6.1",
+]

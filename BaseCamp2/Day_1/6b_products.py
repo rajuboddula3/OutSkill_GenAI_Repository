@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI 
 import uvicorn
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware

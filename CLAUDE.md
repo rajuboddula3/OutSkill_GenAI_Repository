@@ -649,6 +649,53 @@ uvicorn server:app --reload --port 8000
 python app.py
 ```
 
+### Troubleshooting: "address already in use" (Errno 48)
+
+When starting a server (FastAPI/uvicorn, MCP SSE, Gradio, Streamlit) you may see:
+
+```
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 9321): address already in use
+```
+
+This means a previous instance of the server is still running and holding the
+port (common when a dev server was closed by shutting the terminal tab instead
+of pressing **Ctrl+C**). Identify the process and free the port:
+
+```bash
+# 1. Find what is listening on the port (replace 9321 with your port)
+lsof -nP -iTCP:9321 -sTCP:LISTEN
+
+# 2. Inspect the offending process before killing (optional sanity check)
+ps -p <PID> -o pid,ppid,etime,command
+
+# 3. Stop it — try a graceful stop first
+kill <PID>
+
+# 4. If it survives (uvicorn's --reload can ignore SIGTERM), force-kill
+kill -9 <PID>
+
+# 5. Confirm the port is free
+lsof -nP -iTCP:9321 -sTCP:LISTEN   # (no output = free)
+```
+
+One-liner to kill whatever is on a port:
+
+```bash
+kill -9 $(lsof -tiTCP:9321 -sTCP:LISTEN)
+```
+
+Or by process name (e.g. a stray calculator server):
+
+```bash
+pkill -f 2a_calculator.py
+```
+
+**Avoid it next time:** stop servers with **Ctrl+C** in their terminal, or run
+the new instance on a different port (e.g. `--port 9322`).
+
+> macOS note: `timeout` is not installed by default — use Ctrl+C or the
+> `kill`/`pkill` commands above instead.
+
 ---
 
 ## Git Command Reference
