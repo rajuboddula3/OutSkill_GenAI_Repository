@@ -12,7 +12,7 @@ os.makedirs(os.path.join('Day_1','csv_files'), exist_ok=True)
 
 def chunk_pdf_to_dataframe(pdf_path, num_chunks = 5):
     reader = PdfReader(pdf_path)
-    data=[]
+    data=[] 
     filename = os.path.basename(pdf_path)
     for page_num, page in enumerate(reader.pages, 1):
         text = page.extract_text()
@@ -55,4 +55,4 @@ async def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=9321)
+    uvicorn.run(app, host="0.0.0.0", port=9321) 
