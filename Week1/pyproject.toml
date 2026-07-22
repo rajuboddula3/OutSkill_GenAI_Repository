@@ -92,3 +92,8 @@ dependencies = [
     "wcwidth==0.2.13",
     "wordcloud>=1.9.6",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
