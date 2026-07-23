@@ -113,7 +113,7 @@ deactivate
 2. Add `.env` to your `.gitignore` file
 3. Keep your API tokens secure and never share them publicly
 
-## Setup tools error
+## Setup tools error 
 
 1. Setup tools issue is because of python version 3.13 and above. In this case requirements.txt fails
 2. If the version is 3.12 or less, you should not be getting set up tools issue. Hence requirements.txt should work. if you downgrade python 3. requirements.txt should work
