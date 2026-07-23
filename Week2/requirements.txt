@@ -17,7 +17,6 @@ cachetools==5.5.2
 certifi==2025.4.26
 cffi==1.17.1
 charset-normalizer==3.4.1
-chronos==0.3
 chronos-forecasting @ git+https://github.com/amazon-science/chronos-forecasting.git@f40a266a550e37ac16cb6c46dd29a6183f39f618
 click==8.1.8
 cloudpickle==3.1.1
@@ -87,7 +86,7 @@ nest-asyncio==1.6.0
 networkx==3.4.2
 notebook==7.4.1
 notebook_shim==0.2.4
-numpy>=1.26.0,<3
+numpy>=1.26.0,<2
 overrides==7.7.0
 packaging==24.2
 pandas==2.2.3
