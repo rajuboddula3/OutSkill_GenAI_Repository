@@ -11,7 +11,11 @@ import faiss
 app = FastAPI()
 faiss_index = None
 
-os.makedirs(os.path.join('Day_2','csv_files'), exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_DIR = os.path.join(BASE_DIR, 'csv_files')
+PDF_DIR = os.path.join(BASE_DIR, 'pdfs')
+
+os.makedirs(CSV_DIR, exist_ok=True)
 
 def chunk_pdf_to_dataframe(pdf_path, num_chunks = 5):
     reader = PdfReader(pdf_path)
@@ -37,7 +41,7 @@ def chunk_pdf_to_dataframe(pdf_path, num_chunks = 5):
                 chunk = text[start:end]
                 data.append({'filename': filename,'page_number': page_num,'chunk_number': i + 1,'chunk': chunk})
     df = pd.DataFrame(data)
-    df.to_csv(os.path.join('csv_files', filename.replace('.pdf','.csv')), index=False)
+    df.to_csv(os.path.join(CSV_DIR, filename.replace('.pdf','.csv')), index=False)
 
 @app.post("/chunk_pdf")
 async def chunk_pdf(pdf_file_path,num_chunks= 5):
@@ -55,8 +59,11 @@ def embed_text_chunks(chunks, embedding_model_name="all-MiniLM-L6-v2"):
 
 # Function to build a FAISS index
 def build_faiss_index():
-    files = glob.glob(os.path.join('Day_2','csv_files', "*.csv"))
+    files = glob.glob(os.path.join(CSV_DIR, "*.csv"))
     print(files)
+    if not files:
+        print(f"No chunk CSVs in {CSV_DIR} - run ingest_pdfs() or POST /chunk_pdf first.")
+        return None
     df = pd.concat((pd.read_csv(f) for f in files), ignore_index=True)
     embedding_model_name = "all-mpnet-base-v2"
     embeddings = embed_text_chunks(list(df['chunk']), embedding_model_name)
@@ -79,7 +86,7 @@ def build_faiss_index():
 def search_chunks(search_string):
     query_embedding = SentenceTransformer('all-mpnet-base-v2').encode([search_string], convert_to_numpy=True)
     distances, indices = faiss_index.search(query_embedding, k=5)
-    files = glob.glob(os.path.join('Day_2','csv_files', "*.csv"))
+    files = glob.glob(os.path.join(CSV_DIR, "*.csv"))
     df = pd.concat((pd.read_csv(f) for f in files), ignore_index=True)
     matches_df=df.iloc[indices[0]]
     return matches_df.to_json()
@@ -89,8 +96,16 @@ async def health_check():
     """Simple health check endpoint"""
     return {"status": "healthy"}
 
+def ingest_pdfs(num_chunks=5):
+    """Chunk every PDF in pdfs/ into csv_files/ - used to seed an empty index."""
+    for pdf_path in glob.glob(os.path.join(PDF_DIR, "*.pdf")):
+        print(f"Chunking {os.path.basename(pdf_path)}")
+        chunk_pdf_to_dataframe(pdf_path, num_chunks=num_chunks)
+
 def main():
     global faiss_index
+    if not glob.glob(os.path.join(CSV_DIR, "*.csv")):
+        ingest_pdfs()
     faiss_index=build_faiss_index()
 
 if __name__ == "__main__":

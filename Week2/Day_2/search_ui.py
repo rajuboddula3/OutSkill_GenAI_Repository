@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
+from io import StringIO
 
 # Set page configuration
 st.set_page_config(
@@ -19,7 +20,7 @@ def search_pdf_chunks(search_string):
     print(API_URL, payload)
     response = requests.post(f"{API_URL}?search_string={search_string}")
     if response.status_code == 200:
-        return pd.read_json(response.json())
+        return pd.read_json(StringIO(response.json()))
     else:
         st.error(f"Error: API returned status code {response.status_code}")
         st.error(response.text)
@@ -103,7 +104,7 @@ def main():
             if st.button(example):
                 search_input = example
                 # Re-run the app with the new input
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     main()
