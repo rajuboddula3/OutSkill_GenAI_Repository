@@ -38,7 +38,8 @@ from groq import Groq
 # --- Configuration ---
 
 # Load Week3/.env explicitly so the app also works when launched from the repo root.
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+_here = os.path.dirname(os.path.abspath(globals().get("__file__", ".")))
+load_dotenv(os.path.join(_here, ".env"))
 load_dotenv()   # fall back to the usual search path
 
 DEFAULT_MODEL = "llama-3.1-8b-instant"
