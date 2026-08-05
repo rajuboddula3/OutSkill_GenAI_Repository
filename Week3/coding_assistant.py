@@ -5,8 +5,8 @@ from groq import Groq
 from datetime import datetime
 
 # --- Configuration --- 
-DEFAULT_MODEL = "llama3-8b-8192"
-EVALUATION_MODEL = "llama3-8b-8192"
+DEFAULT_MODEL = "llama-3.1-8b-instant"
+EVALUATION_MODEL = "llama-3.1-8b-instant"
 
 # --- Helper Functions ---
 
@@ -143,7 +143,7 @@ with st.sidebar:
 
     selected_model = st.selectbox(
         "Select Model",
-        ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma-7b-it"],
+        ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant"],
         index=0
     )
     
