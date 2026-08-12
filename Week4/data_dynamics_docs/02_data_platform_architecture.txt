@@ -1,0 +1,77 @@
+DATA DYNAMICS - INTERNAL TECHNICAL NOTE: PLATFORM ARCHITECTURE
+Document ID: DD-ARCH-014
+Author: Ben Okafor, Principal Engineer
+Last revised: 03 February 2026
+Status: Living document - supersedes DD-ARCH-011
+
+1. PURPOSE
+
+This note describes the shape of the Data Dynamics analytics platform as it stands today, the reasons
+behind the main design choices, and the constraints a new service is expected to respect. It is aimed
+at engineers who will extend the platform rather than at clients.
+
+2. THE FOUR LAYERS
+
+The platform is organised into four layers: ingestion, storage, transformation and serving. Each layer
+is owned by a named team and exposes a contract that the layer above depends on. A change that breaks
+a contract requires a design note and a deprecation window of at least one sprint.
+
+2.1 Ingestion
+Batch sources land through Airbyte connectors running on our Kubernetes cluster. Streaming sources -
+currently the clickstream and the payments event feed - land through Kafka with a three-day retention
+window. Every ingested record is stamped with an ingestion timestamp and the source system identifier
+before it is written; downstream code must never rely on the source's own event time being trustworthy
+without validation, because two of our upstream partners send clock-skewed events.
+
+2.2 Storage
+Raw data lands in S3 in Parquet, partitioned by source and ingestion date. Snowflake sits on top as
+the analytics warehouse. The bronze/silver/gold convention applies: bronze is an untouched copy of the
+source, silver is cleaned and conformed, gold is the modelled layer that analysts and clients query.
+Nothing outside the platform team reads from bronze.
+
+2.3 Transformation
+All transformation is dbt. Orchestration is Airflow 2.9 running on the same Kubernetes cluster, with
+one DAG per data product rather than one enormous DAG. Models are tested with dbt tests; a model
+without at least a uniqueness and not-null test on its primary key will fail the CI check.
+
+2.4 Serving
+The gold layer is exposed three ways: direct Snowflake access for internal analysts, a REST API for
+client applications, and scheduled extracts for clients who still prefer files. The REST API is a
+FastAPI service behind our API gateway and enforces per-client row-level filters.
+
+3. SERVICE LEVEL OBJECTIVES
+
+The platform publishes two SLOs that on-call is measured against. Freshness: 95% of gold tables are
+refreshed within 4 hours of the source data landing. Availability: the serving REST API returns
+successfully for 99.5% of requests measured over a rolling 30-day window.
+
+Freshness is the SLO that breaks most often. The dominant cause is not compute but upstream lateness -
+a partner file that arrives late pushes the whole downstream chain past the window. For this reason
+DAGs use sensors with explicit timeouts rather than open-ended waits, and a sensor timeout raises an
+alert rather than silently retrying forever.
+
+4. COST CONTROLS
+
+Snowflake warehouses are sized deliberately small and are configured to auto-suspend after 60 seconds
+of inactivity. The single largest source of unplanned spend in 2025 was a development warehouse left
+running by an exploratory notebook, which is why development warehouses now hard-stop after 10 minutes
+regardless of activity. Query tags are mandatory: every dbt model and every scheduled query carries a
+tag identifying the data product, and untagged query spend is charged to the platform team's budget as
+a deliberate incentive.
+
+5. CHOOSING WHERE NEW WORK BELONGS
+
+New engineers frequently ask whether a piece of logic belongs in the ingestion layer or in dbt. The
+rule of thumb is that ingestion may reshape but must not interpret. Renaming a column, casting a type
+or flattening a nested structure is ingestion work. Deduplicating by business key, applying business
+rules or joining across sources is transformation work and belongs in dbt where it is version
+controlled, tested and visible in the lineage graph.
+
+6. KNOWN WEAKNESSES
+
+Three weaknesses are acknowledged and tracked on the platform roadmap. First, Kafka retention of three
+days is too short to replay a long outage and should move to seven. Second, we have no automated
+schema-drift detection on the Airbyte connectors; drift is currently caught by dbt tests failing
+downstream, which is late and noisy. Third, the REST API and the scheduled extracts implement
+row-level filtering separately, so a filtering rule has to be changed in two places - a consolidation
+is planned for Q3 2026.

@@ -1,0 +1,80 @@
+DATA DYNAMICS - MODEL REPORT: CUSTOMER CHURN PREDICTION v2
+Document ID: DD-ML-007
+Author: Clara Mendez, Lead Data Scientist
+Last revised: 28 January 2026
+Model registry entry: churn-propensity/2.1.0
+Status: In production for three clients
+
+1. PROBLEM STATEMENT
+
+Subscription clients ask us to identify accounts likely to cancel within the next 60 days so their
+retention teams can intervene. Version 1 of the model was a logistic regression trained per client on
+a narrow feature set; it performed acceptably but had to be rebuilt from scratch for every new client,
+which made onboarding a four-week exercise. Version 2 replaces it with a shared feature specification
+and a gradient boosted tree that is fine-tuned per client.
+
+2. DATA AND FEATURES
+
+Training data is drawn from the gold layer, never from bronze or silver, so that the model consumes
+the same definitions the client sees on their dashboards. The observation window is 12 months and the
+prediction horizon is 60 days.
+
+Features fall into four families:
+  - Engagement: sessions per week, days since last login, feature-adoption breadth.
+  - Commercial: contract value, plan tier, months since last upgrade or downgrade, discount depth.
+  - Support: tickets raised in the last 90 days, median first-response time, count of escalations.
+  - Lifecycle: tenure in months, onboarding-completion score, number of seats added or removed.
+
+Days since last login is by a wide margin the strongest single predictor, followed by escalation count
+and discount depth. Deeply discounted accounts churn more, not less - discounting tends to be a
+symptom of an account already trying to leave rather than a retention device.
+
+3. TRAINING SETUP
+
+The model is a LightGBM classifier. The split is temporal, not random: we train on the first ten
+months and validate on the final two. A random split leaks future information through account-level
+correlations and inflated our v1 validation scores by roughly nine points of AUC, which is the single
+most important methodological lesson from this project.
+
+Class imbalance is around 1:14. We handle it with class weights rather than resampling, because
+resampling distorted the calibration of the predicted probabilities and the retention teams use the
+probability itself, not just the ranking, to decide how much incentive to offer.
+
+4. PERFORMANCE
+
+On the held-out final two months, pooled across the three production clients:
+  - AUC-ROC: 0.847
+  - Precision at top decile: 0.61
+  - Recall at top decile: 0.44
+  - Brier score: 0.071
+
+Per-client AUC ranges from 0.81 to 0.88. The weakest client is the one with the shortest history -
+eleven months of usable data - which supports our guidance that we should not promise production-grade
+churn scores until a client has at least twelve months of history in the gold layer.
+
+5. FAIRNESS AND GOVERNANCE
+
+The model scores business accounts, not individuals, so it is out of scope for the individual-level
+provisions of the client data policy. Nevertheless we exclude any feature derived from the personal
+attributes of named contacts, and the feature specification is reviewed by the Data Protection Officer
+before any new family of features is added.
+
+Scores are advisory. Client-facing documentation states explicitly that the score must not be used to
+withhold service or to price a renewal automatically, and every delivery contract carries that clause.
+
+6. MONITORING AND RETRAINING
+
+Prediction drift is monitored weekly using population stability index on the score distribution; a PSI
+above 0.2 opens a ticket. Feature drift is monitored on the top ten features only, which is a
+deliberate trade-off to keep the monitoring signal readable.
+
+Retraining is scheduled quarterly and is also triggered on demand if PSI breaches persist for two
+consecutive weeks. Every retrain must beat the incumbent on the temporal validation split before it is
+promoted; a retrain that does not beat the incumbent is archived and the incumbent stays live.
+
+7. KNOWN LIMITATIONS
+
+The model cannot see anything that happens outside our clients' own systems, so churn driven by a
+competitor's pricing move or by an acquisition is invisible to it and shows up as a false negative.
+Recall at the top decile of 0.44 means the majority of churners are not in the top decile at all, so
+retention teams should treat the score as a prioritisation aid rather than a complete list.

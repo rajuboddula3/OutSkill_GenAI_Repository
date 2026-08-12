@@ -1,0 +1,77 @@
+DATA DYNAMICS - INCIDENT POSTMORTEM
+Incident ID: INC-2026-041
+Title: Gold layer stale for 19 hours after silent Airbyte connector failure
+Severity: SEV-2
+Date of incident: 21 February 2026
+Author: Ben Okafor
+Reviewed by: Anya Raghavan, Clara Mendez
+Status: Actions in progress
+
+1. SUMMARY
+
+Between 02:10 and 21:05 UTC on 21 February 2026, the gold layer tables for the Retail Analytics data
+product served data that was up to 19 hours stale. Three client dashboards displayed yesterday's
+numbers without any indication that the data was old. No data was lost or corrupted, and no
+unauthorised access occurred. The cause was a failed Airbyte connector whose failure was not surfaced
+because the connector's own retry loop kept the Airflow sensor in a waiting state rather than failing.
+
+2. IMPACT
+
+Two clients noticed and raised tickets before we did, which is the part of this incident we consider
+most serious. The Retail Analytics REST API remained available throughout - availability was not
+affected - so our availability SLO was met while our freshness SLO was badly missed. Freshness for the
+month dropped to 91.4% against a 95% objective. No financial credits were triggered under the client
+contracts, but both affected clients requested a written explanation.
+
+3. TIMELINE (all times UTC)
+
+02:10  Upstream partner rotates the credentials on their SFTP endpoint without notifying us.
+02:12  Airbyte connector retail_sftp_daily begins failing authentication. It enters its internal retry
+       loop, which is configured with unlimited retries and exponential backoff.
+02:12  The Airflow sensor waiting on the connector's completion remains in "running", not "failed".
+       No alert fires, because our alerting is driven by task failure rather than task duration.
+06:00  Morning dbt run executes against unchanged bronze data. All dbt tests pass, because the data is
+       internally consistent - it is simply old. Gold tables are rebuilt with yesterday's content.
+09:30  On-call engineer performs the morning check, sees a green Airflow view, and moves on.
+14:47  First client ticket arrives: "yesterday's sales figures on our dashboard".
+16:20  Second client ticket arrives.
+17:05  Support escalates to the platform on-call. Investigation begins.
+19:40  Root cause identified as the credential rotation and the swallowed connector failure.
+20:15  New credentials obtained from the partner and applied to the connector.
+21:05  Backfill completes, gold tables refreshed, clients notified.
+
+4. ROOT CAUSE
+
+The direct trigger was an unannounced credential rotation by an upstream partner. The reason a routine
+credential problem became a 19-hour incident is that our failure detection is built entirely on task
+failure signals. A connector that retries forever never produces a failure signal, so an infinite
+retry policy converted a loud, immediate error into a silent, long-running one.
+
+A contributing factor is that dbt tests validate internal consistency but not recency. Every test
+passed on stale data because nothing asserted that the maximum ingestion timestamp was recent.
+
+5. WHAT WENT WELL
+
+The backfill itself was clean and took under an hour once the credentials were fixed, which vindicates
+the decision to keep raw data in S3 partitioned by ingestion date. Escalation from support to platform
+on-call worked as documented and took under twenty minutes.
+
+6. CORRECTIVE ACTIONS
+
+  ACTION-1  Cap Airbyte connector retries at 5 attempts so that persistent failures surface as
+            failures. Owner: Ben Okafor. Due: 07 March 2026. Status: done.
+  ACTION-2  Add a freshness assertion to every gold model - maximum ingestion timestamp must be within
+            the data product's freshness window. Owner: analytics engineering. Due: 21 March 2026.
+            Status: in progress, 11 of 18 data products covered.
+  ACTION-3  Alert on Airflow task duration exceeding 2x its 30-day median, not only on failure.
+            Owner: platform team. Due: 31 March 2026. Status: in progress.
+  ACTION-4  Ask all upstream partners to add Data Dynamics to their credential-rotation notification
+            lists. Owner: Anya Raghavan. Due: 30 April 2026. Status: not started.
+  ACTION-5  Surface a "data as of" timestamp on every client-facing dashboard so staleness is visible
+            to the reader. Owner: serving team. Due: 15 May 2026. Status: not started.
+
+7. LESSONS
+
+An unlimited retry policy is not resilience; it is a way of hiding failure. Any wait in our system
+must have a timeout, and any freshness objective must have a corresponding automated assertion,
+otherwise the objective is only measured after a client complains.

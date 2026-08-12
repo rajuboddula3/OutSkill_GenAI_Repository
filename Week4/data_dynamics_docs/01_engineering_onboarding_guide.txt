@@ -1,0 +1,81 @@
+DATA DYNAMICS - ENGINEERING ONBOARDING GUIDE
+Document ID: DD-ENG-001
+Owner: Anya Raghavan, Head of Data Engineering
+Last revised: 12 January 2026
+Audience: All new engineering hires (Data Engineer, Analytics Engineer, ML Engineer)
+
+1. YOUR FIRST DAY
+
+Welcome to Data Dynamics. Your first day is deliberately light on delivery work. IT will hand you a
+company laptop that has already been enrolled in mobile device management. Do not install a personal
+machine for client work; our client contracts forbid processing customer data on unmanaged hardware.
+
+Before lunch you should have completed three things: signed the confidentiality acknowledgement in
+Workday, enabled multi-factor authentication on your Okta account, and joined the #dd-engineering
+channel in Slack. Your buddy - assigned to you by your team lead - will walk you through the rest.
+
+2. GETTING ACCESS TO SYSTEMS
+
+Access at Data Dynamics is request-based, never default. Every system is fronted by an Okta group and
+you request membership through the Access Portal. Requests are approved by the system owner, not by
+your manager, so expect approvals to arrive out of order.
+
+The standard bundle for a new data engineer is:
+  - okta-grp-warehouse-reader        (read access to the Snowflake analytics warehouse)
+  - okta-grp-airflow-dev             (author and trigger DAGs in the development environment)
+  - okta-grp-github-dd               (source control, read-write on non-protected branches)
+  - okta-grp-vpn-standard            (network access to internal services)
+
+Production write access is deliberately excluded from the starter bundle. It is granted only after you
+have shipped two changes to development and completed the Data Handling course described in section 5.
+Requests for production write access must be approved by both the platform owner and the security
+team, and are reviewed quarterly. Expect five to seven working days for the full approval chain.
+
+VPN is required for anything that is not Slack, Workday or GitHub. The VPN client is Tailscale; your
+device is authorised automatically once okta-grp-vpn-standard is approved. If a service times out,
+check the VPN before filing a ticket - roughly a third of first-week tickets are VPN related.
+
+3. LOCAL DEVELOPMENT ENVIRONMENT
+
+We standardise on Python 3.12 and manage environments with uv. Clone the platform monorepo, run
+"uv sync" inside the package you are working on, and use "uv run" rather than activating a virtual
+environment by hand. This keeps the lockfile authoritative and avoids the drift that used to cause
+"works on my machine" failures.
+
+Docker Desktop is licensed for all engineers and is required to run the local Postgres and MinIO
+containers that back the integration tests. Allocate at least 8 GB of memory to Docker or the test
+suite will be killed by the out-of-memory reaper partway through.
+
+Secrets never live in the repository. Local development reads credentials from a .env file that is
+generated for you by running "make dev-secrets"; the file is git-ignored and rotates every 30 days.
+If you find a hardcoded credential in any repository, treat it as a security incident and follow the
+reporting procedure in the security policy document.
+
+4. HOW WE WORK
+
+Sprints are two weeks and start on a Wednesday. Standup is asynchronous and posted in the team channel
+by 10:00 local time. We keep a written record of decisions: anything that changes an interface, a
+schema or a service-level objective needs a short design note in Notion before implementation starts.
+
+Every change reaches production through a pull request. Two approvals are required for changes that
+touch production pipelines, one approval for everything else. CI must be green; we do not merge on red
+with a promise to fix forward. The on-call engineer for the week has the authority to block any merge
+that would land during a change freeze.
+
+5. REQUIRED TRAINING
+
+Three courses must be completed within your first 30 days:
+  - Data Handling and Client Confidentiality (90 minutes, annual refresher)
+  - Incident Response Basics (60 minutes, one-off)
+  - Introduction to the Data Dynamics Platform (self-paced, roughly 4 hours)
+
+The Data Handling course is a prerequisite for production access, so schedule it in week one rather
+than leaving it to day 29. Completion is tracked automatically; your access request will simply sit in
+a pending state until the course record appears.
+
+6. WHO TO ASK
+
+Platform and pipeline questions go to #dd-platform. Warehouse modelling and dbt questions go to
+#dd-analytics. Anything involving client data classification goes to Clara Mendez, our Data Protection
+Officer, rather than to a channel. If you are blocked for more than half a day, escalate to your team
+lead - we would much rather unblock you early than discover it at the sprint review.

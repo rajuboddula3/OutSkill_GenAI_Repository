@@ -1,0 +1,86 @@
+DATA DYNAMICS - DATA SECURITY AND GOVERNANCE POLICY
+Document ID: DD-SEC-002
+Owner: Clara Mendez, Data Protection Officer
+Last revised: 15 January 2026
+Applies to: All employees, contractors and subprocessors
+Review cadence: Annual, or on any material change to a client contract
+
+1. SCOPE AND PRINCIPLES
+
+This policy governs how Data Dynamics handles data belonging to our clients and to their customers.
+Three principles run through everything below. Collect the minimum necessary. Grant the least
+privilege that allows the work to proceed. Keep data no longer than the contract requires.
+
+2. DATA CLASSIFICATION
+
+Every dataset carries exactly one classification, recorded in the data catalogue at the point of
+registration. An unclassified dataset may not be processed.
+
+  PUBLIC       Information already published by the client. No handling restrictions.
+  INTERNAL     Operational data with no personal or commercially sensitive content. Accessible to
+               all employees on the VPN.
+  CONFIDENTIAL Commercially sensitive client data - pricing, contracts, unreleased figures. Access by
+               named project team only.
+  RESTRICTED   Personal data, payment data, health data, or anything a contract designates as such.
+               Access by named individuals, approved by the Data Protection Officer, logged and
+               reviewed monthly.
+
+When two datasets are joined, the result inherits the stricter of the two classifications. This rule
+is enforced in review, not automatically, so it is the engineer's responsibility to re-classify the
+output of a join and update the catalogue entry.
+
+3. PERSONAL DATA HANDLING
+
+Personal data must never leave the client's designated region. Our platform runs in eu-west-1 and
+us-east-1; a dataset registered to the EU region is blocked at the storage layer from being copied to
+the US region, and any attempt raises a security alert.
+
+Personal data may not be used in development or test environments. Where realistic test data is
+needed, use the synthetic generation utility in the platform monorepo, which preserves distributions
+without reproducing real records. Masking production data is not an acceptable substitute, because
+masked data has repeatedly proved re-identifiable when joined against other datasets.
+
+Exports of RESTRICTED data require a documented business reason, an approval from the Data Protection
+Officer, and an expiry date. Exports without an expiry date are automatically revoked after 30 days.
+
+4. ACCESS CONTROL
+
+Access is granted through Okta groups and is always role-based. Individual grants on a warehouse
+object are prohibited; if you find one, report it, because it is invisible to our quarterly access
+review and will drift out of date.
+
+Production write access requires two approvals, completion of the Data Handling course, and is
+reviewed every quarter. Access that has not been used for 90 days is revoked automatically. Service
+accounts are exempt from the 90-day rule but must have a named human owner, and an unowned service
+account is disabled at the next review.
+
+5. SECRETS AND CREDENTIALS
+
+Credentials live in the secrets manager and nowhere else. A credential committed to a repository is a
+reportable security incident even if the repository is private and even if the commit is amended away,
+because the credential must be assumed compromised and rotated.
+
+Client credentials for upstream systems are held per-client and are never shared across engagements.
+Rotation is every 90 days, and the platform team maintains the rotation calendar.
+
+6. RETENTION AND DELETION
+
+Retention periods are set per client in the engagement contract. Where a contract is silent, the
+default is 24 months from collection for INTERNAL and CONFIDENTIAL data and 12 months for RESTRICTED
+data. Retention is implemented as an automated lifecycle rule on the S3 partitions and a corresponding
+Snowflake task; retention that exists only in a document and not in a lifecycle rule is not retention.
+
+On contract termination, client data must be deleted within 30 days and a deletion certificate issued.
+Backups are covered: our backup retention is 35 days, and the certificate states that residual copies
+in backup will age out within that window rather than claiming immediate erasure.
+
+7. INCIDENT REPORTING
+
+Any suspected exposure of client data must be reported to the Data Protection Officer within one hour
+of discovery, through the #dd-security-incident channel or directly by phone out of hours. Do not
+attempt to assess severity before reporting - report first, assess second. Under GDPR we may have as
+little as 72 hours to notify a supervisory authority, and that clock starts at discovery, not at the
+point we finish investigating.
+
+Reporting a suspected incident in good faith never attracts blame, including when the reporter caused
+it. Failing to report one does.
