@@ -9,8 +9,10 @@ A comprehensive 18-module GenAI Engineering curriculum covering Python fundament
 | Total Modules | 15 Weeks + 2 BaseCamps + 1 BuildWeek |
 | Jupyter Notebooks | 109 |
 | Python Scripts | 117 |
-| Data Files | 15+ CSV/JSON/text |
-| Virtual Environments | 1 committed (`BaseCamp1/.venv`); create per-week for others |
+| Data Files | 15+ CSV/JSON/text (11 CSV + 4 JSON actually tracked — see the `.gitignore` trap) |
+| Virtual Environments | **0 committed** — all gitignored; create per module (`uv sync` or `venv`) |
+| uv-managed modules | BaseCamp1, BaseCamp2, Week1, Week2, Week3, Week4, Week5 |
+| Python pinned | 3.11.4 (`.python-version`) — system python3 is 3.14.6, do not use it |
 
 ---
 
@@ -36,10 +38,12 @@ GenAIEngineering-Cohort1/
 ├── Week13/                 # LangGraph workflow orchestration
 ├── Week14/                 # Code review agents, async RAG, advanced MCP
 ├── Week15/                 # Batch processing, synthetic data, statistics
+├── Day_2/csv_files/        # Stray empty scratch folder at repo root (not course material)
 ├── classroom.ipynb         # Main classroom notebook (74MB)
 ├── requirements.txt        # Root-level dependencies
 ├── commands.md             # FastAPI/Streamlit/Git command reference
 ├── vscode-extensions.txt   # VS Code extensions list (currently empty)
+├── CLAUDE.md               # This file
 └── .gitignore
 ```
 
@@ -226,21 +230,25 @@ GenAIEngineering-Cohort1/
 ---
 
 ### Week 5 — Discord Bots & Advanced RAG
-**Path**: `Week5/`
+**Path**: `Week5/` — **uv project** (`pyproject.toml` + `uv.lock` + `.python-version`),
+and the only module with a `.venv` currently built on this machine.
 
 **Bot Structure (`bot/`):**
 - `bot.py` — Main bot entry point
 - `cogs/ibot.py`, `cogs/meta.py`, `cogs/template.py` — Bot command modules
 - `helpers/utils.py`, `helpers/views.py` — Utilities and UI
-- `database/` — Database models
-- `sample_config.json` — Configuration template
+- `database/schema.sql`, `database/database.db` — SQLite schema + committed DB
+- `sample_config.json` — Configuration template (copy to `config.json`)
+- `dockerfile` — Container build for the bot
 - `requirements.txt`, `README.md`
 
 **Alternative bot:** `discord_bot/cogs/ibot.py`
 
 **Other files:**
 - `ChatAssistant.ipynb` — Chat system tutorial
-- `RagAdvanced.ipynb` — Advanced RAG pipeline
+- `RagAdvanced.ipynb` — Advanced RAG pipeline *(currently modified in git)*
+- `main.py` — uv scaffold stub (prints `Hello from week5!`); not course material
+- `README.md`, `sample.md`
 - `IndianFoodDataset.csv`, `train.csv`
 
 ---
@@ -539,24 +547,59 @@ NEWS_API_KEY=your_news_api_key           # Week 11
 ```
 
 ### Virtual Environments
-```bash
-# BaseCamp1 (the only committed virtual environment)
-source BaseCamp1/.venv/bin/activate
 
-# For all other modules — create a fresh env per week
+**No virtual environment is committed.** `.gitignore` contains both `**/.venv` and
+`**/*_env`, and `git ls-files` returns **0** tracked venv files — every environment is
+created locally. Only `Week5/.venv` currently exists on this machine; create the others
+as you need them.
+
+```bash
+# uv-managed module (preferred — see below): creates .venv from uv.lock
+cd BaseCamp1 && uv sync
+
+# Non-uv module — create a fresh env per week
+cd WeekN
 python -m venv .venv && source .venv/bin/activate
-pip install -r WeekN/requirements.txt   # if the week ships a requirements.txt
+pip install -r requirements.txt          # if the week ships a requirements.txt
 ```
 
-> Note: only `BaseCamp1/.venv` is checked in. Earlier `*_env/` folders
-> (basecamp2_env, week1_env, …) are gitignored — recreate them locally as needed.
+Expected output of `uv sync` in a uv module (first run):
+
+```
+Using CPython 3.11.4
+Creating virtual environment at: .venv
+Resolved 148 packages in 412ms
+Installed 143 packages in 2.31s
+ + aiohttp==3.9.5
+ + groq==0.9.0
+ ...
+```
+
+On a second run with nothing changed, uv skips the install entirely:
+
+```
+Resolved 148 packages in 1ms
+Audited 143 packages in 0.04ms
+```
+
+To verify which env you are actually in:
+
+```bash
+which python                    # → <module>/.venv/bin/python
+python -c "import sys; print(sys.prefix)"
+```
 
 ### UV Package Manager (preferred)
 
 Several modules are managed with [**uv**](https://docs.astral.sh/uv/) — a fast Python
 package/environment manager. Modules with a `pyproject.toml` + `uv.lock` +
-`.python-version` are uv projects: **BaseCamp1**, **BaseCamp2**, **Week1**, **Week2**
-(more added over time). Python is pinned to **3.11.4** via `.python-version`.
+`.python-version` are uv projects: **BaseCamp1**, **BaseCamp2**, **Week1**, **Week2**,
+**Week3**, **Week4**, **Week5** (more added over time). Python is pinned to **3.11.4**
+via `.python-version`.
+
+> Installed tooling on this machine: `uv 0.11.24`, `gh 2.96.0`, system `python3 3.14.6`
+> (Homebrew). Note the system Python is **3.14**, not the 3.11.4 the modules pin — always
+> run module code through `uv run` or an activated module `.venv`, never bare `python3`.
 
 ```bash
 # Install uv (once, macOS/Linux)
@@ -744,9 +787,61 @@ As of the last sweep this returns **no matches** — the repo is clean of `apply
 
 ## Git Command Reference
 
-Full reference lives in `commands.md`. Quick reference for day-to-day cohort work:
+Full reference lives in `commands.md`. Quick reference for day-to-day cohort work.
+Every command below is paired with the output you should actually see — outputs marked
+**(live)** were captured from this repo.
+
+### ⚠️ Current repo state — read this first
+
+Two things about this working copy will bite you if you don't know them:
+
+1. **A GitHub personal access token is embedded in the `origin` remote URL** in plaintext
+   in `.git/config`. See [Security: scrub the token](#security-scrub-the-embedded-token)
+   below — it should be rotated and removed.
+2. **`.gitignore` ignores `**/*.csv` and `**/*.json` repo-wide.** New data files are
+   silently skipped by `git add`. See [The .gitignore data-file trap](#the-gitignore-data-file-trap).
+
+### Branch layout (live)
+
+Both remotes carry a branch per module, not just `main`:
+
+```bash
+git branch -a
+```
+
+```
+* main
+  remotes/origin/BaseCamp1
+  remotes/origin/BaseCamp2
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/main
+  remotes/origin/week_01
+  ...
+  remotes/origin/week_16
+  remotes/upstream/BaseCamp1
+  remotes/upstream/BaseCamp2
+  remotes/upstream/main
+  remotes/upstream/week_01
+  ...
+  remotes/upstream/week_16
+```
+
+| Branch pattern | Where | What it holds |
+|----------------|-------|---------------|
+| `main` | origin + upstream | Full course, all modules merged |
+| `week_01` … `week_16` | origin + upstream | Instructor's per-week snapshot |
+| `BaseCamp1`, `BaseCamp2` | origin + upstream | Per-basecamp snapshot |
+
+Work happens on `main` in this copy. To look at the instructor's version of one week
+without disturbing your work:
+
+```bash
+git fetch upstream
+git checkout -b peek_week10 upstream/week_10   # inspect, then: git checkout main
+```
 
 ### Everyday workflow
+
 ```bash
 git status                       # See what changed
 git add <file>                   # Stage a specific file
@@ -758,7 +853,133 @@ git push origin main             # Push commits to the remote main branch
 git pull origin main             # Fetch + merge latest from remote main
 ```
 
+**`git status` — expected output (live):**
+
+```
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   Week5/RagAdvanced.ipynb
+
+no changes added to commit (use "git add" and/or "git commit -a")
+```
+
+A clean tree instead prints:
+
+```
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+```
+
+**`git commit -m "..."` — expected output:**
+
+```
+[main 7c1e9a2] This is week5 second update
+ 1 file changed, 354 insertions(+), 1120 deletions(-)
+```
+
+If nothing was staged you get this instead (not an error to panic about — you forgot `git add`):
+
+```
+On branch main
+Changes not staged for commit:
+	modified:   Week5/RagAdvanced.ipynb
+no changes added to commit
+```
+
+**`git push origin main` — expected output:**
+
+```
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 12.53 KiB | 12.53 MiB/s, done.
+Total 4 (delta 3), reused 0 (delta 0), pack-reused 0
+To https://github.com/rajuboddula3/OutSkill_GenAI_Repository.git
+   f6bb6fa..7c1e9a2  main -> main
+```
+
+Already-current push prints `Everything up-to-date`.
+
+**`git pull origin main` — expected output** (nothing new upstream):
+
+```
+From https://github.com/rajuboddula3/OutSkill_GenAI_Repository
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+```
+
+### Inspecting history & changes
+
+```bash
+git log --oneline                # Compact history
+git log --graph --oneline        # Branch graph
+git diff                         # Unstaged changes
+git diff --stat                  # Summary of unstaged changes (best for notebooks)
+git diff --staged                # Staged changes
+git show <commit-hash>           # Changes in a specific commit
+git blame <file>                 # Who changed each line
+```
+
+**`git log --oneline -5` — expected output (live):**
+
+```
+f6bb6fa This is week5 first update
+48d5ab5 This is week4 final update including home - work
+16ea34b This is week4 final update including homework
+e6d0f1f This is week4 3rd  update
+a408892 This is week4 second update
+```
+
+**`git diff --stat` — expected output (live):**
+
+```
+ Week5/RagAdvanced.ipynb | 1474 ++++++++++++-----------------------------------
+ 1 file changed, 354 insertions(+), 1120 deletions(-)
+```
+
+> 💡 **Notebook diffs:** plain `git diff` on a `.ipynb` dumps thousands of lines of JSON
+> (execution counts, base64 image outputs) even for a one-cell edit — the diff above is
+> mostly re-run output, not real changes. Use `git diff --stat` to see scope, and
+> **Clear All Outputs** in Jupyter/VS Code before committing to keep diffs readable.
+
+### The `.gitignore` data-file trap
+
+`.gitignore` in this repo ignores broad patterns repo-wide:
+
+```
+**/*_env      **/*.json     **/*.csv      **/.env      **/.venv
+**/*.png      **/*.pkl      *.jpg         *.mp4        *.pyc
+**/models/*   *.lance*      *.gradio      **/.ipynb_checkpoints
+```
+
+Because `**/*.csv` and `**/*.json` are ignored, **new datasets you add will not be staged
+by `git add`, and git says nothing.** Only 11 CSVs and 4 JSONs are tracked today — they
+were committed before the rule landed. 13 CSVs currently sit on disk ignored.
+
+```bash
+# Why isn't my file staging? — ask git directly
+git check-ignore -v Week6/call_records.csv
+# → .gitignore:14:**/*.csv	Week6/call_records.csv
+
+# List every ignored file
+git status --ignored --short
+
+# Force-add a dataset you DO want tracked
+git add -f Week6/call_records.csv
+```
+
+Keep large model weights, `.env` files, and generated images ignored — force-add only
+small datasets the notebooks need.
+
 ### First-time setup
+
 ```bash
 git config --global user.name  "Your Name"
 git config --global user.email "you@example.com"
@@ -766,7 +987,10 @@ git clone https://github.com/username/repository.git
 git clone -b <branch> https://github.com/username/repository.git   # specific branch
 ```
 
+Verify with `git config --list | grep user` → `user.name=Raju Boddula`.
+
 ### Branching
+
 ```bash
 git branch                       # List local branches
 git branch -a                    # List all branches (local + remote)
@@ -776,7 +1000,37 @@ git merge <branch>               # Merge <branch> into the current branch
 git branch -d <branch>           # Delete a merged branch
 ```
 
+**`git checkout -b week16_work` — expected output:**
+
+```
+Switched to a new branch 'week16_work'
+```
+
+**`git merge upstream/main` — expected outputs:**
+
+```
+Updating f6bb6fa..a91c3d4              # fast-forward, no conflicts
+Fast-forward
+ Week16/Day_1/intro.ipynb | 420 +++++++++++++++++++++++++
+ 1 file changed, 420 insertions(+)
+```
+
+```
+CONFLICT (content): Merge conflict in Week5/RagAdvanced.ipynb
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+On a notebook conflict, taking one side wholesale is usually right — merging notebook
+JSON by hand corrupts it:
+
+```bash
+git checkout --ours   Week5/RagAdvanced.ipynb   # keep your version
+git checkout --theirs Week5/RagAdvanced.ipynb   # keep instructor's version
+git add Week5/RagAdvanced.ipynb && git commit
+```
+
 ### Remotes
+
 ```bash
 git remote -v                                        # List remotes
 git remote add origin <url>                          # Add a remote
@@ -786,17 +1040,21 @@ git push -u origin <branch>                          # Push and set upstream tra
 git push --force-with-lease                          # Safer force push
 ```
 
-### Inspecting history & changes
-```bash
-git log --oneline                # Compact history
-git log --graph --oneline        # Branch graph
-git diff                         # Unstaged changes
-git diff --staged                # Staged changes
-git show <commit-hash>           # Changes in a specific commit
-git blame <file>                 # Who changed each line
+**`git remote -v` — expected output (token redacted):**
+
+```
+origin	https://rajuboddula3:ghp_****@github.com/rajuboddula3/OutSkill_GenAI_Repository.git (fetch)
+origin	https://rajuboddula3:ghp_****@github.com/rajuboddula3/OutSkill_GenAI_Repository.git (push)
+upstream	ssh://git@github.com/outskill-git/GenAIEngineering-Cohort1.git (fetch)
+upstream	ssh://git@github.com/outskill-git/GenAIEngineering-Cohort1.git (push)
 ```
 
+Note `origin` uses **HTTPS + embedded token** while `upstream` uses **SSH** — so upstream
+fetches need a working SSH key (`ssh -T git@github.com` → `Hi <user>! You've successfully
+authenticated`).
+
 ### Undo & recovery
+
 ```bash
 git restore <file>               # Discard working-directory changes (Git 2.23+)
 git restore --staged <file>      # Unstage a file (keeps edits)
@@ -807,14 +1065,59 @@ git stash / git stash pop        # Shelve and restore work-in-progress
 git clean -fd                    # Remove untracked files & directories
 ```
 
-### Sync a fork with upstream
+`git restore` and `git reset --hard` print **nothing on success** — silence means it
+worked. Confirm with `git status`. Both **permanently discard** uncommitted work; stash
+first if unsure:
+
 ```bash
-git remote add upstream https://github.com/original/repository.git
-git fetch upstream
+git stash            # → Saved working directory and index state WIP on main: f6bb6fa ...
+git stash pop        # → restores, then: Dropped refs/stash@{0} (a3f9...)
+```
+
+`git clean -fd` deletes untracked files — always dry-run first:
+
+```bash
+git clean -nd        # -n = dry run, lists what WOULD be deleted
+```
+
+### Sync a fork with upstream
+
+```bash
+git fetch upstream                # upstream is already configured here
 git checkout main
 git merge upstream/main
 git push origin main
 ```
+
+**`git fetch upstream` — expected output** when new material lands:
+
+```
+From ssh://github.com/outskill-git/GenAIEngineering-Cohort1
+ * [new branch]      week_16    -> upstream/week_16
+   f6bb6fa..a91c3d4  main       -> upstream/main
+```
+
+Nothing new prints no output at all.
+
+### Security: scrub the embedded token
+
+`git remote -v` shows a live `ghp_…` personal access token embedded in the `origin` URL.
+It is stored in plaintext in `.git/config` and is exposed to anything that reads the repo
+config or shell history. Fix it:
+
+```bash
+# 1. Rotate/revoke the leaked token FIRST:
+#    GitHub → Settings → Developer settings → Personal access tokens → revoke
+# 2. Remove it from the remote URL
+git remote set-url origin https://github.com/rajuboddula3/OutSkill_GenAI_Repository.git
+# 3. Authenticate properly instead
+gh auth login                     # or: git config --global credential.helper osxkeychain
+# 4. Confirm it's gone — no ghp_ should appear
+git remote -v
+grep -n "ghp_" .git/config        # → no output
+```
+
+Never embed a token in a remote URL, a notebook cell, or a committed `.env`.
 
 ---
 
@@ -825,10 +1128,28 @@ the type, then use the per-module tables below for the exact command + key packa
 Install dependencies first — a module's `requirements.txt`/`pyproject.toml` is the
 source of truth; the "Key packages" column just names the headline ones.
 
+### Where the dependency files actually live (live inventory)
+
+| Module | Dependency file(s) | Manager |
+|--------|-------------------|---------|
+| BaseCamp1 | `pyproject.toml` + `uv.lock` | **uv** |
+| BaseCamp2 | `pyproject.toml` + `uv.lock`, `Day_1/requirements.txt`, `Day_2/requirements.txt` | uv or pip |
+| Week1 | `pyproject.toml` + `uv.lock`, `requirements.txt` | uv or pip |
+| Week2 | `pyproject.toml` + `uv.lock`, `requirements.txt` | uv or pip |
+| Week3 | `pyproject.toml` + `uv.lock`, `requirements.txt` | uv or pip |
+| Week4 | `pyproject.toml` + `uv.lock` | **uv** |
+| Week5 | `pyproject.toml` + `uv.lock`, `bot/requirements.txt` | uv or pip |
+| Week7, Week8, Week9 | `requirements.txt` | pip |
+| Week10 | `Day1/requirements.txt` | pip |
+| Week12 | `Day_2/3_financial_modelling/requirements.txt` | pip |
+| Week13 | `Day 2/requirements.txt` (folder name has a space) | pip |
+| Week14 | `Day_1/requirements.txt`, `Day2/requirements.txt` | pip |
+| Week6, Week11, Week15 | *none* — use root `requirements.txt` | pip |
+
 ### How to install dependencies (pick one)
 
 ```bash
-# uv-managed modules (BaseCamp1, BaseCamp2, Week1, Week2 — have pyproject.toml/uv.lock)
+# uv-managed modules (BaseCamp1, BaseCamp2, Week1–Week5 — have pyproject.toml/uv.lock)
 cd <module> && uv sync
 
 # modules that ship a requirements.txt
@@ -839,6 +1160,19 @@ pip install -r requirements.txt
 pip install -r requirements.txt        # run from repo root
 ```
 
+**`pip install -r requirements.txt` — expected tail:**
+
+```
+Successfully installed langchain-community-0.2.6 qdrant-client-1.9.1 streamlit-1.36.0 ...
+```
+
+A resolver conflict looks like this (see the numpy note at the end of this file):
+
+```
+ERROR: Cannot install -r requirements.txt (line 21) and numpy<2 because these
+package versions have conflicting dependencies.
+```
+
 ### Run pattern by program type
 
 | Type | How to run | Notes |
@@ -847,13 +1181,130 @@ pip install -r requirements.txt        # run from repo root
 | **Plain Python script** (`.py`) | `python file.py` (or `uv run python file.py`) | Requires `.env` with the relevant API key (see table below). |
 | **Streamlit app** | `streamlit run file.py` → http://localhost:8501 | Needs `streamlit`. Add `--server.port 8502` to change port. |
 | **Gradio app** | `python file.py` → http://localhost:7860 | Needs `gradio`. Some accept `--share`, `--port`, `--setup-db`. |
-| **FastAPI / REST server** | `python server.py` **or** `uvicorn <module>:app --reload --port <p>` | Needs `fastapi`, `uvicorn`. |
+| **FastAPI / REST server** | `python server.py` **or** `uvicorn <module>:app --reload --port <p>` | Needs `fastapi`, `uvicorn`. Week10 servers bind **9321**. |
 | **MCP server** | `python <mcp_server>.py` (SSE/HTTP) or launched by its client (stdio) | Needs `fastmcp`/`mcp`. |
 | **Discord bot** | `python bot.py` | Needs `nextcord`, a `config.json`, and `DISCORD_TOKEN`. |
 | **CrewAI / LangGraph agent** | `python file.py` | Needs `crewai`/`langgraph` + `OPENROUTER_API_KEY`. |
 
 > Prefix any of these with `uv run` inside a uv-managed module to skip manual activation
 > (e.g. `uv run streamlit run app.py`).
+
+### Expected output by program type
+
+What "it worked" looks like for each type — plus the failure you're most likely to hit.
+
+**Jupyter Lab** — `uv run jupyter lab`
+
+```
+[I 2026-08-23 10:14:02.331 ServerApp] Jupyter Server 2.14.0 is running at:
+[I 2026-08-23 10:14:02.331 ServerApp] http://localhost:8888/lab?token=8f3c2a1b...
+[I 2026-08-23 10:14:02.331 ServerApp]  or http://127.0.0.1:8888/lab?token=8f3c2a1b...
+    To access the server, open this file in a browser:
+        file:///Users/rajuboddula/Library/Jupyter/runtime/jpserver-XXXXX-open.html
+```
+
+A browser tab opens automatically. Stop with **Ctrl+C** (confirm `y`).
+
+**Streamlit app** — `streamlit run Day_2/chatbot.py`
+
+```
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.1.12:8501
+```
+
+Port already taken → Streamlit auto-increments rather than failing:
+
+```
+  Port 8501 is already in use, using port 8502 instead.
+```
+
+**Gradio app** — `python session_1/food_app.py`
+
+```
+Running on local URL:  http://127.0.0.1:7860
+To create a public link, set `share=True` in `launch()`.
+```
+
+With `--share`, you also get a temporary public URL:
+
+```
+Running on public URL: https://a1b2c3d4e5f6.gradio.live
+This share link expires in 72 hours.
+```
+
+**FastAPI / uvicorn** — `python Day2/1_rest_calculator_server.py`
+
+```
+INFO:     Will watch for changes in these directories: ['.../Week10/Day2']
+INFO:     Uvicorn running on http://0.0.0.0:9321 (Press CTRL+C to quit)
+INFO:     Started reloader process [48213] using StatReload
+INFO:     Started server process [48215]
+INFO:     Application startup complete.
+```
+
+Each request then logs a line: `INFO: 127.0.0.1:53211 - "POST /add HTTP/1.1" 200 OK`.
+Interactive docs live at **http://localhost:9321/docs**.
+
+**MCP SSE server** — `python Day2/3_mcp_calculator_sse_server.py`
+
+```
+INFO:     Uvicorn running on http://0.0.0.0:9321 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53318 - "GET /sse HTTP/1.1" 200 OK
+```
+
+**MCP stdio server** — prints **nothing** when run directly and appears to hang. That is
+correct: it speaks JSON-RPC over stdin/stdout and is meant to be launched *by its client*
+(`2_mcp_calculator_stdio_client.ipynb`). Don't run it standalone expecting output.
+
+**Discord bot** — `python bot/bot.py`
+
+```
+Logged in as MyBot#1234 (ID: 1123581321345589)
+------
+```
+
+Missing token/config fails fast: `nextcord.errors.LoginFailure: Improper token has been passed.`
+
+**CrewAI agent** — `python sdlc_crew.py`
+
+```
+# Agent: Requirements Analyst
+## Task: Analyse the product brief and produce user stories
+# Agent: Requirements Analyst
+## Final Answer:
+1. As a user, I want ...
+```
+
+Verbose crews stream a colored trace per agent; the final crew result prints last.
+
+**LangGraph script** — `python Day_1/simple_graph.py` prints the state dict after each
+node, ending with the final state — no server, process exits when the graph completes.
+
+**Plain script** — `uv run python Day_1/1_My_First_Prog.py` prompts and loops:
+
+```
+Enter a number ... 3
+Iteration  0
+Iteration  1
+Iteration  2
+```
+
+### Common failures across all types
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `ModuleNotFoundError: No module named 'X'` | Wrong env, or deps not installed | `uv sync` in the module, or activate the right `.venv` |
+| `[Errno 48] address already in use` | Old server still holding the port | See the Errno 48 section above |
+| `KeyError: 'GOOGLE_API_KEY'` / `AuthenticationError` | Missing or unloaded `.env` | Add the key to the module's `.env`; ensure `load_dotenv()` runs |
+| `429 RESOURCE_EXHAUSTED` (Gemini) | Free-tier daily quota hit | Switch model or wait for quota reset |
+| `command not found: streamlit` | Tool installed only inside a module env | Prefix with `uv run`, or activate the `.venv` |
+| Notebook uses the wrong Python | VS Code picked system 3.14 | Select the module's `.venv/bin/python` as kernel |
+
+> Note: `streamlit` and `jupyter` are **not** on the global PATH on this machine — they
+> exist only inside module environments. Always `uv run streamlit ...` / `uv run jupyter lab`
+> from within the module, or activate that module's `.venv` first.
 
 ### BaseCamp1 — Python fundamentals
 Deps: `uv sync` (uses `pyproject.toml`). Key packages: `groq`, `pandas`, `numpy`, `python-dotenv`, `ipykernel`.
@@ -893,27 +1344,32 @@ Deps: `pip install -r Week2/requirements.txt`. Key packages: `transformers`, `to
 | `Day_2/search_engine.py` / `search_ui.py` | `python search_engine.py` / `streamlit run search_ui.py` | — |
 
 ### Week 3 — Coding assistant
-Deps: `pip install -r Week3/requirements.txt`. Key packages: `groq`. **Requires `GROQ_API_KEY`.**
+Deps: **uv project** — `cd Week3 && uv sync` (or `pip install -r requirements.txt`).
+Key packages: `groq`. **Requires `GROQ_API_KEY`** — a `Week3/.env` already exists locally.
 
-| Program | Command | Requires |
-|---------|---------|----------|
-| `coding_assistant.ipynb` | `jupyter lab` | `GROQ_API_KEY` |
-| `coding_assistant.py` | `streamlit run coding_assistant.py` | `GROQ_API_KEY`, `streamlit` |
+| Program | Command | Expected output |
+|---------|---------|-----------------|
+| `coding_assistant.ipynb` | `uv run jupyter lab` | Jupyter banner + token URL on :8888 |
+| `coding_assistant.py` | `uv run streamlit run coding_assistant.py` | `Local URL: http://localhost:8501` |
 
 ### Week 4 — RAG intro
-Deps: root `requirements.txt`. Key packages: `langchain-community`, `qdrant-client`, `sentence-transformers`. **Requires `GOOGLE_API_KEY`.**
+Deps: **uv project** — `cd Week4 && uv sync` (falls back to root `requirements.txt`).
+Key packages: `langchain-community`, `qdrant-client`, `sentence-transformers`.
+**Requires `GOOGLE_API_KEY`** — a `Week4/.env` already exists locally.
 
-| Program | Command | Requires |
-|---------|---------|----------|
-| `Rag.ipynb` | `jupyter lab` | `GOOGLE_API_KEY` |
+| Program | Command | Expected output |
+|---------|---------|-----------------|
+| `Rag.ipynb` | `uv run jupyter lab` | First run downloads the embedding model (progress bars), then retrieval results per cell |
 
 ### Week 5 — Discord bot & advanced RAG
-Deps: `pip install -r Week5/bot/requirements.txt`. Key packages: `nextcord`, `langchain`, `qdrant-client`.
+Deps: **uv project** — `cd Week5 && uv sync` (bot also has `bot/requirements.txt`).
+Key packages: `nextcord`, `langchain`, `qdrant-client`. A `Week5/.env` exists locally.
 
-| Program | Command | Requires |
-|---------|---------|----------|
-| `bot/bot.py` | `python bot/bot.py` (from `Week5/`) | `DISCORD_TOKEN`, `bot/config.json` (copy `sample_config.json`) |
-| `ChatAssistant.ipynb`, `RagAdvanced.ipynb` | `jupyter lab` | `GOOGLE_API_KEY` |
+| Program | Command | Expected output |
+|---------|---------|-----------------|
+| `bot/bot.py` | `uv run python bot/bot.py` (from `Week5/`) | `Logged in as <Bot>#1234` — needs `DISCORD_TOKEN` + `bot/config.json` (copy `sample_config.json`) |
+| `ChatAssistant.ipynb`, `RagAdvanced.ipynb` | `uv run jupyter lab` | Retrieval + generation output per cell; needs `GOOGLE_API_KEY` |
+| `main.py` | `uv run python main.py` | `Hello from week5!` (scaffold stub, not course material) |
 
 ### Week 6 — Data integration & function calling
 Deps: root `requirements.txt` + `mysql-connector-python`. Key packages: `langchain`, `qdrant-client`, `rank_bm25`, `mysql-connector-python`. **Requires `GOOGLE_API_KEY`.**
@@ -1047,10 +1503,30 @@ Deps: root `requirements.txt` + `anthropic`, `scipy`, `diffusers`. Key packages:
 ## Notes for Claude Code
 
 - **Do not alter** existing notebooks, scripts, or data files unless explicitly requested.
-- Each week has its own `requirements.txt` — install per-week, not globally.
+- **Not every week has a `requirements.txt`** — Week6, Week11 and Week15 have none (use the
+  root file); Week13's lives in `Day 2/` (folder name contains a space, so quote paths:
+  `pip install -r "Week13/Day 2/requirements.txt"`). See the live inventory table above.
+- Prefer `uv sync` / `uv run` in the uv modules (BaseCamp1, BaseCamp2, Week1–Week5) over
+  manual venv activation — it guarantees the pinned 3.11.4 interpreter.
+- **Never run module code with the bare system `python3`** — it is 3.14.6 here, while modules
+  pin 3.11.4. `streamlit` and `jupyter` are also absent from the global PATH.
 - The root `requirements.txt` covers the broadest set of dependencies (Google GenAI, LangChain, Qdrant, Streamlit, Transformers).
 - `numpy<2` is pinned in root requirements — important for compatibility with older HuggingFace models.
-- Week-specific `.env` files are expected but not committed (see `.gitignore`).
+- Week-specific `.env` files are expected but not committed (see `.gitignore`). `Week3/.env`,
+  `Week4/.env` and `Week5/.env` exist locally.
+- **No virtual environment is committed** — `.gitignore` covers `**/.venv` and `**/*_env`,
+  and 0 venv files are tracked. Only `Week5/.venv` is built locally right now.
+- **`.gitignore` swallows new `*.csv` and `*.json` files** — `git add` will silently skip
+  them. Use `git check-ignore -v <file>` to confirm and `git add -f` when a dataset must be
+  tracked. Only 11 CSVs / 4 JSONs are tracked today.
+- **A GitHub PAT is embedded in the `origin` remote URL** in plaintext. It should be rotated
+  and stripped — see *Security: scrub the embedded token*. Never echo `git remote -v` output
+  or `.git/config` contents anywhere they could be shared.
 - `classroom.ipynb` at root is 74MB — avoid loading unless necessary.
 - Notebooks under `BaseCamp1/Day_1/` are actively edited during class — expect frequent uncommitted changes there.
-- `Git Command Reference` above covers the common workflow; see `commands.md` for the full guide plus FastAPI/Streamlit run/stop commands.
+- Notebook diffs are enormous because outputs are committed; use `git diff --stat`, and clear
+  outputs before committing.
+- Both remotes carry `week_01`…`week_16` + `BaseCamp1`/`BaseCamp2` branches; `main` holds
+  everything merged. `upstream` is SSH, `origin` is HTTPS.
+- `Git Command Reference` above covers the common workflow with expected output for each
+  command; see `commands.md` for the full guide plus FastAPI/Streamlit run/stop commands.
