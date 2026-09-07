@@ -3,7 +3,7 @@
 from qdrant_client import QdrantClient
 from dotenv import load_dotenv  # For loading API key from a .env file
 import google.generativeai as genai
-from langchain_qdrant import Qdrant  # Qdrant Vector Store Wrapper
+from langchain_qdrant import QdrantVectorStore  # Qdrant Vector Store Wrapper
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 import pandas as pd
@@ -286,7 +286,7 @@ def search(
             subquery,
             k=n_results,
             score_threshold=similarity_threshold,
-            filter=metadata
+            filter=metadata if metadata else None,
         )
 
     searched_df = pd.DataFrame(
@@ -355,7 +355,7 @@ class GenAIBot(commands.Cog):
         ).set_index('Srno')[columns]
 
         data = df[:].progress_apply(convert_to_doc, axis=1)
-        self.vector_store_unchunked = Qdrant.from_documents(
+        self.vector_store_unchunked = QdrantVectorStore.from_documents(
             data,
             model_384,
             collection_name="indian-food-metadata",
