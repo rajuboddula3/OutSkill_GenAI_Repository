@@ -6,6 +6,8 @@ import dotenv
 from groq import Groq
 import json
 import re
+from openai import OpenAI
+import os
 
 ## Inputs
 table_name = 'Student_Performance'
@@ -13,13 +15,13 @@ Prompt = "Tell me the lowest 5 scorers, despite of having parents having done Ba
 # Prompt = "Tell me who are the students having attendance below 60"
 # Prompt = "Tell me number of students based on their internet quality types"
 
-sql_engine = create_engine("sqlite:///Sample_2 - Copy.db")
+sql_engine = create_engine("sqlite:///Sample_2.db")
 conn = sql_engine.connect ()
 
 # LLM Client
 dotenv.load_dotenv ()
-G_client = Groq()
-G_Model = "llama3-70b-8192"
+G_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+G_Model = "gpt-4o-mini"
 
 def get_table_schema_as_csv(connection, table_name):
     """
