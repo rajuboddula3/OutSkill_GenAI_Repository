@@ -3,7 +3,7 @@ name = "week7"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "datasets>=5.0.1",
     "evaluate>=0.4.6",
@@ -21,3 +21,10 @@ dependencies = [
     "transformers>=5.17.0",
     "yt-dlp>=2026.8.19",
 ]
+
+[project.scripts]
+week7 = "week7:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
