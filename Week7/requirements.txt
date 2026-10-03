@@ -2,7 +2,7 @@ matplotlib
 opencv-python
 torch
 torchvision
-transformers
+transformers<5
 datasets
 evaluate
 tqdm
