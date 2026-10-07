@@ -18,7 +18,7 @@ dependencies = [
     "torchmetrics>=1.9.0",
     "torchvision>=0.29.0",
     "tqdm>=4.70.1",
-    "transformers>=4.9.2,<5",
+    "transformers>=4.57.0,<5",
     "yt-dlp>=2026.8.19",
 ]
 
